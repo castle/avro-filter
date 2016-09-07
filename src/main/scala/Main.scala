@@ -12,6 +12,8 @@ import org.apache.avro.file.CodecFactory
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileStatus
@@ -20,7 +22,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable.ListBuffer
 
-case class Config(out: File = new File("."), schema: File = null, files: Seq[String] = Seq(), filter: Map[String,String] = Map())
+case class Config(out: String = null, schema: File = null, files: Seq[String] = Seq(), filter: Map[String,String] = Map())
 
 object AvroFilter {
   val parser = new scopt.OptionParser[Config]("avro-filter") {
@@ -29,7 +31,7 @@ object AvroFilter {
     opt[Map[String,String]]('f', "filter").required().valueName("k1=v1,k2=v2...").action( (x, c) =>
       c.copy(filter = x) ).text("filter expression, eg. user_id=1")
 
-    opt[File]('o', "out").required().valueName("<file>").
+    opt[String]('o', "out").required().valueName("<file>").
       action( (x, c) => c.copy(out = x) ).
       text("output file")
 
@@ -62,6 +64,11 @@ object AvroFilter {
     return fileList.toList
   }
 
+  def openOutput(fileName:String) : OutputStream = {
+    val p:Path = new Path(fileName)
+    return new BufferedOutputStream(p.getFileSystem(new Configuration()).create(p));
+  }
+
   def main(args: Array[String]) = {
 
 
@@ -87,7 +94,7 @@ object AvroFilter {
     val codecFactory = CodecFactory.deflateCodec(9)
     writer.setCodec(codecFactory)
 
-    val outFile = options.get.out
+    val outFile = openOutput(options.get.out)
     var isOpen = false
 
     var writeCount:Int = 0
